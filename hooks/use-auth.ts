@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -8,13 +8,81 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const instanceId = useRef(Math.random().toString(36).substr(2, 9));
+
+  // Function to manually recover session
+  const recoverSession = useCallback(async () => {
+    console.log("useAuth: Manually recovering session...");
+    setLoading(true);
+
+    try {
+      // First try to refresh the session
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.refreshSession();
+      console.log("useAuth: Manual refresh result:", {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        error: error?.message,
+      });
+
+      if (session?.user) {
+        setUser(session.user);
+        return true;
+      }
+
+      // If refresh failed, try to get the session from storage
+      const {
+        data: { session: storedSession },
+      } = await supabase.auth.getSession();
+      if (storedSession?.user) {
+        setUser(storedSession.user);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("useAuth: Manual recovery failed:", error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase.auth]);
 
   useEffect(() => {
     // Get initial user
     const getUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
+        // Try to get the session first
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        // Then get the user
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        // If we have a session but no user, try to refresh the session
+        if (session && !user && !error) {
+          console.log(
+            "useAuth: Have session but no user, attempting to refresh..."
+          );
+          const {
+            data: { user: refreshedUser },
+            error: refreshError,
+          } = await supabase.auth.refreshSession();
+          console.log("useAuth: Refresh result:", {
+            user: !!refreshedUser,
+            error: refreshError,
+          });
+          setUser(refreshedUser || null);
+        } else {
+          setUser(user);
+        }
       } catch (error) {
         console.error("Error getting user:", error);
         setUser(null);
@@ -26,13 +94,12 @@ export function useAuth() {
     getUser();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.id);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      if (event !== "TOKEN_REFRESHED") setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
     return () => {
       subscription.unsubscribe();
@@ -48,16 +115,12 @@ export function useAuth() {
   };
 
   const isAuthenticated = !!user;
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('useAuth state:', { user: !!user, loading, isAuthenticated });
-  }, [user, loading, isAuthenticated]);
 
   return {
     user,
     loading,
     isAuthenticated,
     signOut,
+    recoverSession,
   };
 }

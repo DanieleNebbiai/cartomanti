@@ -7,6 +7,7 @@ import Header from "@/components/header";
 import AuthModal from "@/components/auth-modal";
 import PaymentModal from "@/components/payment-modal";
 import VoiceConversation from "@/components/voice-conversation";
+import AuthDebug from "@/components/auth-debug";
 
 function ConsultoPageContent() {
   const searchParams = useSearchParams();
@@ -215,6 +216,7 @@ function ConsultoPageContent() {
         isOpen={showPayment}
         onClose={() => setShowPayment(false)}
       />
+      <AuthDebug />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mic, MicOff, Clock, MessageSquare, Send } from "lucide-react";
 import { useTrialUsage } from "@/hooks/use-trial-usage";
+import { useAuth } from "@/hooks/use-auth";
 import UsageLimitModal from "@/components/usage-limit-modal";
 
 interface VoiceConversationProps {
@@ -31,15 +32,21 @@ export default function VoiceConversation({
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [conversation, setConversation] = useState<Array<{role: string, content: string}>>([]);
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [conversation, setConversation] = useState<
+    Array<{ role: string; content: string }>
+  >([]);
+  const [recognition, setRecognition] = useState<any>(null);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [textInput, setTextInput] = useState("");
   const [showTextInput, setShowTextInput] = useState(false);
   const sessionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const wasAuthenticatedRef = useRef<boolean>(false);
+  const authRetryCountRef = useRef<number>(0);
 
+  const { isAuthenticated: authIsAuthenticated, loading: authLoading } =
+    useAuth();
   const {
     hasExceededLimit,
     getRemainingMinutes,
@@ -48,111 +55,140 @@ export default function VoiceConversation({
     addUsage,
     forceSave,
     isLoading: isUsageLoading,
-    isAuthenticated,
+    isAuthenticated: trialIsAuthenticated,
   } = useTrialUsage();
 
-  // Debug authentication state changes
+  // Debug authentication state changes - only log significant changes
+  const prevAuth = useRef({ authIsAuthenticated: false, authLoading: true });
   useEffect(() => {
-    console.log('Voice conversation auth state changed:', { isAuthenticated, isUsageLoading });
-  }, [isAuthenticated, isUsageLoading]);
+    if (
+      prevAuth.current.authIsAuthenticated !== authIsAuthenticated ||
+      (prevAuth.current.authLoading && !authLoading)
+    ) {
+      prevAuth.current = { authIsAuthenticated, authLoading };
+    }
+  }, [authIsAuthenticated, trialIsAuthenticated, authLoading, isUsageLoading]);
 
   // Initialize speech recognition
   useEffect(() => {
-    console.log('Initializing speech recognition...');
-    console.log('Protocol:', window.location.protocol);
-    console.log('Hostname:', window.location.hostname);
-    
-    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      console.log('Speech Recognition API available');
-      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+    if (
+      typeof window !== "undefined" &&
+      ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
+      const SpeechRecognition =
+        window.webkitSpeechRecognition || window.SpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
-      
+
       // More robust settings
       recognitionInstance.continuous = false;
       recognitionInstance.interimResults = false;
-      recognitionInstance.lang = 'it-IT';
+      recognitionInstance.lang = "it-IT";
       recognitionInstance.maxAlternatives = 1;
-      
+
       // Additional settings for better reliability
-      if ('serviceURI' in recognitionInstance) {
-        recognitionInstance.serviceURI = 'wss://www.google.com/speech-api/v2/recognize';
+      if ("serviceURI" in recognitionInstance) {
+        recognitionInstance.serviceURI =
+          "wss://www.google.com/speech-api/v2/recognize";
       }
-      
+
       recognitionInstance.onresult = async (event: any) => {
         const transcript = event.results[0][0].transcript;
-        console.log('Speech recognized:', transcript);
+        console.log("Speech recognized:", transcript);
         await handleUserMessage(transcript);
       };
-      
+
       recognitionInstance.onstart = () => {
-        console.log('Speech recognition started successfully');
+        console.log("Speech recognition started successfully");
         setIsListening(true);
         setRecognitionError(null);
       };
-      
+
       recognitionInstance.onend = () => {
-        console.log('Speech recognition ended');
+        console.log("Speech recognition ended");
         setIsListening(false);
         // Clear any previous error when recognition ends normally
-        if (recognitionError && recognitionError !== 'Errore di rete. Riprovo...') {
+        if (
+          recognitionError &&
+          recognitionError !== "Errore di rete. Riprovo..."
+        ) {
           setRecognitionError(null);
           setRetryCount(0);
         }
       };
-      
+
       recognitionInstance.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
+        console.error("Speech recognition error:", event.error);
         setIsListening(false);
-        
+
         const errorMessage = event.error;
         setRecognitionError(errorMessage);
-        
+
         // Handle different types of errors with retry logic
         switch (errorMessage) {
-          case 'network':
-            console.log('Network error - will attempt retry');
+          case "network":
+            console.log("Network error - will attempt retry");
             if (retryCount < 2) {
-              setRecognitionError('Errore di rete. Riprovo...');
+              setRecognitionError("Errore di rete. Riprovo...");
               setTimeout(() => {
-                console.log(`Retrying speech recognition (attempt ${retryCount + 1}/2)`);
-                setRetryCount(prev => prev + 1);
+                console.log(
+                  `Retrying speech recognition (attempt ${retryCount + 1}/2)`
+                );
+                setRetryCount((prev) => prev + 1);
                 setRecognitionError(null);
-                // Try again with a fresh instance - but only if still authenticated
+                // Try again with a fresh instance - use the saved auth state
                 setTimeout(() => {
-                  if (isAuthenticated && !isUsageLoading) {
+                  if (wasAuthenticatedRef.current) {
+                    console.log(
+                      "Retrying with saved auth state:",
+                      wasAuthenticatedRef.current
+                    );
                     startListening();
                   } else {
-                    console.log('Skipping retry due to auth state:', { isAuthenticated, isUsageLoading });
-                    setRecognitionError('Errore di rete del microfono. Prova a usare il testo.');
+                    console.log(
+                      "Skipping retry - was not authenticated when session started"
+                    );
+                    setRecognitionError(
+                      "Errore di rete del microfono. Prova a usare il testo."
+                    );
                   }
                 }, 500);
               }, 2000);
             } else {
-              setRecognitionError('Problemi di connessione microfono. Prova a ricaricare la pagina o usa il testo.');
+              setRecognitionError(
+                "Problemi di connessione microfono. Prova a ricaricare la pagina o usa il testo."
+              );
             }
             break;
-          case 'no-speech':
-            console.log('No speech detected');
-            setRecognitionError('Nessun discorso rilevato. Parla chiaramente e riprova.');
+          case "no-speech":
+            console.log("No speech detected");
+            setRecognitionError(
+              "Nessun discorso rilevato. Parla chiaramente e riprova."
+            );
             break;
-          case 'audio-capture':
-            console.log('Audio capture error');
-            setRecognitionError('Errore microfono. Verifica che sia collegato e abilitato.');
+          case "audio-capture":
+            console.log("Audio capture error");
+            setRecognitionError(
+              "Errore microfono. Verifica che sia collegato e abilitato."
+            );
             break;
-          case 'not-allowed':
-            console.log('Microphone permission denied');
-            setRecognitionError('Accesso microfono negato. Abilita il microfono nelle impostazioni del browser.');
+          case "not-allowed":
+            console.log("Microphone permission denied");
+            setRecognitionError(
+              "Accesso microfono negato. Abilita il microfono nelle impostazioni del browser."
+            );
             setHasPermission(false);
             break;
-          case 'aborted':
-            console.log('Recognition aborted');
+          case "aborted":
+            console.log("Recognition aborted");
             // Don't show error for aborted, it's usually intentional
             break;
           default:
-            setRecognitionError(`Errore riconoscimento vocale: ${errorMessage}`);
+            setRecognitionError(
+              `Errore riconoscimento vocale: ${errorMessage}`
+            );
         }
       };
-      
+
       setRecognition(recognitionInstance);
     }
   }, []);
@@ -165,17 +201,20 @@ export default function VoiceConversation({
     }
 
     setIsProcessing(true);
-    
+
     try {
       // Add user message to conversation
-      const newConversation = [...conversation, { role: 'user', content: message }];
+      const newConversation = [
+        ...conversation,
+        { role: "user", content: message },
+      ];
       setConversation(newConversation);
-      
+
       // Get AI response
-      const chatResponse = await fetch('/api/chat', {
-        method: 'POST',
+      const chatResponse = await fetch("/api/chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           message,
@@ -183,40 +222,42 @@ export default function VoiceConversation({
           category: selectedCategory,
         }),
       });
-      
+
       if (!chatResponse.ok) {
-        throw new Error('Failed to get AI response');
+        throw new Error("Failed to get AI response");
       }
-      
+
       const { text: aiResponse } = await chatResponse.json();
-      
+
       // Add AI response to conversation
-      setConversation(prev => [...prev, { role: 'assistant', content: aiResponse }]);
-      
+      setConversation((prev) => [
+        ...prev,
+        { role: "assistant", content: aiResponse },
+      ]);
+
       // Convert to speech
-      const ttsResponse = await fetch('/api/text-to-speech', {
-        method: 'POST',
+      const ttsResponse = await fetch("/api/text-to-speech", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           text: aiResponse,
           category: selectedCategory,
         }),
       });
-      
+
       if (ttsResponse.ok) {
         const audioBlob = await ttsResponse.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        
+
         if (audioRef.current) {
           audioRef.current.src = audioUrl;
           await audioRef.current.play();
         }
       }
-      
     } catch (error) {
-      console.error('Error processing message:', error);
+      console.error("Error processing message:", error);
       onError?.(error as Error);
     } finally {
       setIsProcessing(false);
@@ -265,7 +306,8 @@ export default function VoiceConversation({
         forceSave();
         // Optional: Show warning to user
         event.preventDefault();
-        event.returnValue = "Hai una conversazione in corso. Sei sicuro di voler uscire?";
+        event.returnValue =
+          "Hai una conversazione in corso. Sei sicuro di voler uscire?";
       }
     };
 
@@ -284,15 +326,15 @@ export default function VoiceConversation({
     };
 
     // Add event listeners
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
 
     // Cleanup
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
     };
   }, [isListening, isProcessing, forceSave]);
 
@@ -326,66 +368,94 @@ export default function VoiceConversation({
   };
 
   const startListening = async () => {
-    console.log('startListening called, authentication status:', { isAuthenticated, isUsageLoading });
-    
+    console.log("startListening called, authentication status:", {
+      authIsAuthenticated,
+      trialIsAuthenticated,
+      authLoading,
+      isUsageLoading,
+    });
+
     // Wait for authentication to load completely before checking
-    if (isUsageLoading) {
-      console.log('Still loading authentication, waiting...');
-      setRecognitionError('Caricamento in corso...');
-      setTimeout(() => startListening(), 1000);
-      return;
+    if (authLoading || isUsageLoading) {
+      if (authRetryCountRef.current < 10) {
+        // Max 10 tentativi (10 secondi)
+        authRetryCountRef.current++;
+        console.log(
+          `Still loading authentication, waiting... (${authRetryCountRef.current}/10)`
+        );
+        setRecognitionError("Caricamento in corso...");
+        setTimeout(() => startListening(), 1000);
+        return;
+      } else {
+        console.log("Authentication timeout - too many retry attempts");
+        setRecognitionError(
+          "Timeout durante il caricamento. Ricarica la pagina e riprova."
+        );
+        authRetryCountRef.current = 0; // Reset counter
+        return;
+      }
     }
-    
+
+    // Reset retry counter when auth is loaded
+    authRetryCountRef.current = 0;
+
     // Check if user is authenticated (but don't auto-trigger login to avoid issues)
-    if (!isAuthenticated) {
-      console.log('User not authenticated, showing error instead of triggering modal');
-      setRecognitionError('Devi essere loggato per usare il microfono. Usa il testo o ricarica la pagina.');
+    if (!authIsAuthenticated) {
+      console.log(
+        "User not authenticated, showing error instead of triggering modal"
+      );
+      setRecognitionError(
+        "Devi essere loggato per usare il microfono. Usa il testo o ricarica la pagina."
+      );
       return;
     }
 
     // Check if user has exceeded trial limit
     if (hasExceededLimit()) {
-      console.log('User has exceeded limit, showing modal');
+      console.log("User has exceeded limit, showing modal");
       setShowLimitModal(true);
       return;
     }
 
     if (!hasPermission) {
-      console.log('No microphone permission, requesting...');
+      console.log("No microphone permission, requesting...");
       const granted = await requestMicrophonePermission();
       if (!granted) {
-        console.log('Microphone permission denied');
+        console.log("Microphone permission denied");
         return;
       }
     }
 
     if (!recognition) {
-      console.error('Speech recognition not supported');
-      setRecognitionError('Riconoscimento vocale non supportato su questo browser.');
+      console.error("Speech recognition not supported");
+      setRecognitionError(
+        "Riconoscimento vocale non supportato su questo browser."
+      );
       return;
     }
 
     try {
       // Clear any previous errors
       setRecognitionError(null);
-      
+
       if (!sessionStartTime) {
-        console.log('Starting new session...');
+        console.log("Starting new session...");
+        wasAuthenticatedRef.current = authIsAuthenticated; // Save the auth state
         setSessionStartTime(new Date());
         startUsageTracking();
         onConnect?.();
       }
-      
-      console.log('Starting speech recognition...');
+
+      console.log("Starting speech recognition...");
       recognition.start();
-      console.log('Started listening...');
+      console.log("Started listening...");
     } catch (error) {
-      console.error('Failed to start listening:', error);
+      console.error("Failed to start listening:", error);
       setIsListening(false);
-      
+
       if (error instanceof Error) {
-        if (error.name === 'InvalidStateError') {
-          console.log('Recognition already running, restarting...');
+        if (error.name === "InvalidStateError") {
+          console.log("Recognition already running, restarting...");
           // Recognition is already running, stop it first
           try {
             recognition.stop();
@@ -393,28 +463,17 @@ export default function VoiceConversation({
               recognition.start();
             }, 100);
           } catch (stopError) {
-            setRecognitionError('Errore riavvio riconoscimento vocale.');
+            setRecognitionError("Errore riavvio riconoscimento vocale.");
             onError?.(error);
           }
         } else {
-          setRecognitionError('Errore avvio riconoscimento vocale.');
+          setRecognitionError("Errore avvio riconoscimento vocale.");
           onError?.(error);
         }
       }
     }
   };
 
-  // Manual retry for network errors  
-  const retryListening = () => {
-    if (retryCount < 3 && recognitionError === 'network') {
-      console.log(`Manual retry speech recognition (attempt ${retryCount + 1}/3)`);
-      setRetryCount(prev => prev + 1);
-      setRecognitionError(null);
-      setTimeout(() => {
-        startListening();
-      }, 500);
-    }
-  };
 
   const stopListening = () => {
     if (recognition && isListening) {
@@ -427,7 +486,7 @@ export default function VoiceConversation({
   const handleTextSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!textInput.trim() || isProcessing) return;
-    
+
     const message = textInput.trim();
     setTextInput("");
     await handleUserMessage(message);
@@ -438,20 +497,22 @@ export default function VoiceConversation({
       stopListening();
       stopUsageTracking();
       await forceSave(); // Final save to Supabase
-      
+
       setConversation([]);
       setSessionStartTime(null);
+      wasAuthenticatedRef.current = false; // Reset the saved auth state
+      authRetryCountRef.current = 0; // Reset retry counter
       onDisconnect?.();
-      
-      console.log('Conversation ended');
+
+      console.log("Conversation ended");
     } catch (error) {
-      console.error('Failed to end conversation:', error);
+      console.error("Failed to end conversation:", error);
     }
   };
 
   // Login required UI - but only if we're not loading and actually not authenticated
-  if (!isAuthenticated && !isUsageLoading) {
-    console.log('Rendering login required UI');
+  if (!authIsAuthenticated && !authLoading && !isUsageLoading) {
+    console.log("Rendering login required UI");
     return (
       <div className="flex flex-col items-center gap-4 p-6 ">
         <div className="text-center">
@@ -475,7 +536,7 @@ export default function VoiceConversation({
   }
 
   // Loading state
-  if (isUsageLoading) {
+  if (authLoading || isUsageLoading) {
     return (
       <div className="flex flex-col items-center gap-4 p-6">
         <div className="w-16 h-16 bg-sage-400/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
@@ -528,13 +589,16 @@ export default function VoiceConversation({
                 style={{
                   width: `${Math.max(
                     0,
-                    (getUsedMinutes() * 60 + getUsedSecondsRemainder()) / 600 * 100
+                    ((getUsedMinutes() * 60 + getUsedSecondsRemainder()) /
+                      600) *
+                      100
                   )}%`,
                 }}
               />
             </div>
             <div className="text-xs text-earth-300 mt-1">
-              Usati: {getUsedMinutes()}:{getUsedSecondsRemainder().toString().padStart(2, "0")} / 10:00
+              Usati: {getUsedMinutes()}:
+              {getUsedSecondsRemainder().toString().padStart(2, "0")} / 10:00
             </div>
           </div>
         </div>
@@ -546,12 +610,14 @@ export default function VoiceConversation({
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
             <span className="text-yellow-300 text-sm font-semibold">
-              {recognitionError.includes('Riprovo') ? 'Riconnessione...' : 'Problema Microfono'}
+              {recognitionError.includes("Riprovo")
+                ? "Riconnessione..."
+                : "Problema Microfono"}
             </span>
           </div>
           <p className="text-yellow-100 text-sm mb-3">{recognitionError}</p>
-          
-          {recognitionError.includes('Riprovo') ? (
+
+          {recognitionError.includes("Riprovo") ? (
             <div className="flex items-center gap-2 text-yellow-300 text-xs">
               <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
               Tentativo {retryCount + 1}/2...
@@ -587,7 +653,9 @@ export default function VoiceConversation({
       {/* Text Input Fallback */}
       {(showTextInput || recognitionError) && (
         <div className="bg-earth-800/50 rounded-lg p-4 backdrop-blur-sm border border-white/10 mb-4 max-w-md">
-          <h3 className="text-white text-sm font-semibold mb-3">Scrivi il tuo messaggio:</h3>
+          <h3 className="text-white text-sm font-semibold mb-3">
+            Scrivi il tuo messaggio:
+          </h3>
           <form onSubmit={handleTextSubmit} className="flex gap-2">
             <Input
               value={textInput}
@@ -677,21 +745,28 @@ export default function VoiceConversation({
       </div>
 
       {/* Hidden audio element for playing TTS */}
-      <audio ref={audioRef} style={{ display: 'none' }} />
+      <audio ref={audioRef} style={{ display: "none" }} />
 
       {/* Conversation History */}
       {conversation.length > 0 && (
         <div className="mt-8 bg-earth-800/50 rounded-lg p-4 backdrop-blur-sm border border-white/10 max-w-md">
-          <h3 className="text-lg font-semibold text-white mb-4">Conversazione</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Conversazione
+          </h3>
           <div className="space-y-3 max-h-60 overflow-y-auto">
             {conversation.map((msg, index) => (
-              <div key={index} className={`p-3 rounded-lg ${
-                msg.role === 'user' 
-                  ? 'bg-sage-600/30 text-sage-100' 
-                  : 'bg-terracotta-600/30 text-terracotta-100'
-              }`}>
+              <div
+                key={index}
+                className={`p-3 rounded-lg ${
+                  msg.role === "user"
+                    ? "bg-sage-600/30 text-sage-100"
+                    : "bg-terracotta-600/30 text-terracotta-100"
+                }`}
+              >
                 <div className="text-xs font-semibold mb-1">
-                  {msg.role === 'user' ? 'Tu' : selectedOperator || 'Cartomante'}
+                  {msg.role === "user"
+                    ? "Tu"
+                    : selectedOperator || "Cartomante"}
                 </div>
                 <div className="text-sm">{msg.content}</div>
               </div>

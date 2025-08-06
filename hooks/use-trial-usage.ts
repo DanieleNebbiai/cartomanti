@@ -25,21 +25,22 @@ export function useTrialUsage() {
   // Get current month key (YYYY-MM format)
   const getCurrentMonth = () => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
   };
 
   // Load usage from Supabase
   const loadUsageFromSupabase = async () => {
     if (!user?.id) return;
-    
+
     try {
-      console.log("Loading usage from Supabase for user:", user.id);
-      
       // Get user profile with free_trial_minutes_used
       const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('free_trial_minutes_used')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("free_trial_minutes_used")
+        .eq("id", user.id)
         .single();
 
       if (error) {
@@ -58,18 +59,16 @@ export function useTrialUsage() {
 
       const totalSeconds = (profile?.free_trial_minutes_used || 0) * 60; // Convert minutes to seconds
       const currentMonth = getCurrentMonth();
-      
+
       const newUsage: TrialUsage = {
         totalSeconds,
         month: currentMonth,
         lastUpdated: new Date(),
         userId: user.id,
       };
-      
+
       setUsage(newUsage);
       currentUsageRef.current = newUsage;
-      console.log("Loaded usage from Supabase:", newUsage);
-      
     } catch (error) {
       console.error("Error loading trial usage:", error);
       const newUsage: TrialUsage = {
@@ -88,29 +87,32 @@ export function useTrialUsage() {
   // Save usage to Supabase
   const saveUsageToSupabase = async (newUsage: TrialUsage) => {
     if (!user?.id) return;
-    
+
     try {
       const minutesUsed = Math.ceil(newUsage.totalSeconds / 60); // Convert seconds to minutes (round up)
-      
-      console.log("Saving usage to Supabase:", { userId: user.id, totalSeconds: newUsage.totalSeconds, minutesUsed });
-      
+
+      console.log("Saving usage to Supabase:", {
+        userId: user.id,
+        totalSeconds: newUsage.totalSeconds,
+        minutesUsed,
+      });
+
       const { error } = await supabase
-        .from('profiles')
-        .update({ 
+        .from("profiles")
+        .update({
           free_trial_minutes_used: minutesUsed,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (error) {
         console.error("Error saving usage to Supabase:", error);
       } else {
         console.log("Successfully saved usage to Supabase");
       }
-      
+
       setUsage(newUsage);
       currentUsageRef.current = newUsage;
-      
     } catch (error) {
       console.error("Error saving trial usage:", error);
     }
@@ -145,28 +147,42 @@ export function useTrialUsage() {
   }, [user?.id]);
 
   // Add seconds to usage - only update local state, batch saves
-  const addUsage = useCallback((seconds: number) => {
-    console.log("addUsage called:", { seconds, currentUsage: currentUsageRef.current, isAuthenticated, userId: user?.id });
-    
-    if (!currentUsageRef.current || !isAuthenticated || !user?.id) {
-      console.log("addUsage early return - no usage or not authenticated");
-      return;
-    }
-    
-    const newUsage: TrialUsage = {
-      ...currentUsageRef.current,
-      totalSeconds: Math.min(currentUsageRef.current.totalSeconds + seconds, TRIAL_LIMIT_SECONDS + 60), // Allow slight overflow for UX
-      lastUpdated: new Date(),
-    };
-    
-    console.log("addUsage updating (local only):", { oldTotal: currentUsageRef.current.totalSeconds, newTotal: newUsage.totalSeconds });
-    
-    // Update local state immediately for UI responsiveness
-    currentUsageRef.current = newUsage;
-    setUsage(newUsage);
-    
-    // Database saves are handled by periodic interval
-  }, [isAuthenticated, user?.id]);
+  const addUsage = useCallback(
+    (seconds: number) => {
+      console.log("addUsage called:", {
+        seconds,
+        currentUsage: currentUsageRef.current,
+        isAuthenticated,
+        userId: user?.id,
+      });
+
+      if (!currentUsageRef.current || !isAuthenticated || !user?.id) {
+        console.log("addUsage early return - no usage or not authenticated");
+        return;
+      }
+
+      const newUsage: TrialUsage = {
+        ...currentUsageRef.current,
+        totalSeconds: Math.min(
+          currentUsageRef.current.totalSeconds + seconds,
+          TRIAL_LIMIT_SECONDS + 60
+        ), // Allow slight overflow for UX
+        lastUpdated: new Date(),
+      };
+
+      console.log("addUsage updating (local only):", {
+        oldTotal: currentUsageRef.current.totalSeconds,
+        newTotal: newUsage.totalSeconds,
+      });
+
+      // Update local state immediately for UI responsiveness
+      currentUsageRef.current = newUsage;
+      setUsage(newUsage);
+
+      // Database saves are handled by periodic interval
+    },
+    [isAuthenticated, user?.id]
+  );
 
   // Check if user has exceeded the limit
   const hasExceededLimit = () => {
@@ -199,7 +215,7 @@ export function useTrialUsage() {
   // Reset usage (for testing or admin purposes)
   const resetUsage = async () => {
     if (!isAuthenticated || !user?.id) return;
-    
+
     const newUsage: TrialUsage = {
       totalSeconds: 0,
       month: getCurrentMonth(),
@@ -218,7 +234,7 @@ export function useTrialUsage() {
       setIsLoading(false);
       return;
     }
-    
+
     if (user?.id) {
       loadUsageFromSupabase();
     }
