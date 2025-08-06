@@ -1,16 +1,25 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Phone, PhoneOff } from "lucide-react"
-import Header from "@/components/header"
-import AuthModal from "@/components/auth-modal"
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Header from "@/components/header";
+import AuthModal from "@/components/auth-modal";
+import PaymentModal from "@/components/payment-modal";
+import VoiceConversation from "@/components/voice-conversation";
 
 export default function ConsultoPage() {
-  const [showAuth, setShowAuth] = useState(false)
-  const [isCallActive, setIsCallActive] = useState(false)
-  const [timer, setTimer] = useState(0)
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
+  const searchParams = useSearchParams();
+  const selectedOperator = searchParams.get("operator");
+  const selectedCategory = searchParams.get("category");
+
+  const [showAuth, setShowAuth] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const [particles, setParticles] = useState<
+    Array<{ id: number; x: number; y: number; delay: number }>
+  >([]);
 
   useEffect(() => {
     // Generate floating particles
@@ -19,56 +28,72 @@ export default function ConsultoPage() {
       x: Math.random() * 100,
       y: Math.random() * 100,
       delay: Math.random() * 3,
-    }))
-    setParticles(newParticles)
-  }, [])
+    }));
+    setParticles(newParticles);
+  }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout
+    let interval: NodeJS.Timeout;
     if (isCallActive) {
       interval = setInterval(() => {
-        setTimer((prev) => prev + 1)
-      }, 1000)
+        setTimer((prev) => prev + 1);
+      }, 1000);
     }
-    return () => clearInterval(interval)
-  }, [isCallActive])
+    return () => clearInterval(interval);
+  }, [isCallActive]);
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  };
 
-  const handleStartCall = () => {
-    setIsCallActive(true)
-    setTimer(0)
-  }
+  const handleVoiceConnect = () => {
+    setIsCallActive(true);
+    setTimer(0);
+  };
 
-  const handleEndCall = () => {
-    setIsCallActive(false)
-    setTimer(0)
-  }
+  const handleVoiceDisconnect = () => {
+    setIsCallActive(false);
+    setTimer(0);
+  };
+
+  const handleVoiceError = (error: Error) => {
+    console.error("Voice conversation error:", error);
+    setIsCallActive(false);
+    setTimer(0);
+  };
+
+  const handleUpgrade = () => {
+    setShowPayment(true);
+  };
+
+  const handleLoginRequired = () => {
+    setShowAuth(true);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-earth-900 via-sage-900 to-terracotta-900 text-white overflow-hidden">
+    <div className="w-full min-h-screen bg-gradient-to-br from-earth-900 via-sage-900 to-terracotta-900 text-white overflow-x-hidden">
       <Header onAuthClick={() => setShowAuth(true)} dark />
 
       {/* Floating Particles */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {particles.map((particle) => (
           <div
             key={particle.id}
             className="absolute w-2 h-2 bg-sage-400/30 rounded-full animate-float"
             style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
+              left: `${Math.max(1, Math.min(99, particle.x))}%`,
+              top: `${Math.max(1, Math.min(99, particle.y))}%`,
               animationDelay: `${particle.delay}s`,
             }}
           />
         ))}
       </div>
 
-      <div className="relative pt-20 pb-16 px-4 flex flex-col items-center justify-center min-h-screen">
+      <div className="relative pt-20 pb-16 px-4 flex flex-col items-center justify-center min-h-screen max-w-full">
         {/* Main Crystal Ball */}
         <div className="relative mb-12">
           <div className="crystal-ball w-80 h-80 rounded-full bg-gradient-to-br from-sage-400/20 via-terracotta-400/30 to-earth-400/20 backdrop-blur-sm border border-white/20 flex items-center justify-center relative overflow-hidden">
@@ -105,75 +130,91 @@ export default function ConsultoPage() {
           />
         </div>
 
-        {/* Call Status */}
-        <div className="text-center mb-8">
-          <h1 className="font-playfair text-4xl font-bold mb-4">
-            {isCallActive ? "Consulto in Corso" : "Pronto per il Consulto"}
-          </h1>
-
-          {isCallActive && (
-            <div className="text-2xl font-mono text-sage-300 mb-4 animate-pulse">{formatTime(timer)}</div>
-          )}
-
-          <p className="text-xl text-earth-200 max-w-2xl mx-auto">
-            {isCallActive
-              ? "Il tuo cartomante è in ascolto. Condividi le tue domande e ricevi le risposte che cerchi."
-              : "Clicca il pulsante per iniziare il tuo consulto personalizzato con un cartomante esperto."}
-          </p>
-        </div>
-
-        {/* Call Controls */}
-        <div className="flex gap-6">
-          {!isCallActive ? (
-            <Button
-              size="lg"
-              onClick={handleStartCall}
-              className="bg-gradient-to-r from-sage-600 to-sage-700 hover:from-sage-700 hover:to-sage-800 text-white px-12 py-6 text-xl font-semibold rounded-full shadow-2xl hover:shadow-sage-500/25 transition-all duration-300 animate-pulse-glow"
-            >
-              <Phone className="mr-3 h-6 w-6" />
-              Inizia Consulto
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              onClick={handleEndCall}
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-12 py-6 text-xl font-semibold rounded-full shadow-2xl hover:shadow-red-500/25 transition-all duration-300"
-            >
-              <PhoneOff className="mr-3 h-6 w-6" />
-              Termina Consulto
-            </Button>
-          )}
-        </div>
-
-        {/* Demo Notice */}
-        {isCallActive && (
-          <div className="mt-8 text-center">
-            <p className="text-earth-300 text-sm">
-              * Questa è una demo di 30 secondi. Il timer si resetterà automaticamente.
-            </p>
+        {/* Selected Operator Info */}
+        {selectedOperator && (
+          <div className="text-center backdrop-blur-sm rounded-lg p-6">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {selectedOperator}
+            </h2>
+            {selectedCategory && (
+              <span className="inline-block px-4 py-2 bg-sage-600 text-white rounded-full text-sm font-medium">
+                {selectedCategory}
+              </span>
+            )}
           </div>
         )}
 
-        {/* Mystical Elements */}
-        <div className="absolute top-1/4 left-1/4 text-6xl opacity-20 animate-float">✨</div>
-        <div className="absolute top-1/3 right-1/4 text-4xl opacity-30 animate-float" style={{ animationDelay: "1s" }}>
-          🌙
+        {/* Call Status */}
+        <div className="text-center mb-8">
+          {isCallActive && (
+            <div className="text-2xl font-mono text-sage-300 mb-4 animate-pulse">
+              {formatTime(timer)}
+            </div>
+          )}
         </div>
-        <div
-          className="absolute bottom-1/4 left-1/3 text-5xl opacity-25 animate-float"
-          style={{ animationDelay: "2s" }}
-        >
-          ⭐
+
+        {/* Operator Selection */}
+        {!selectedOperator && (
+          <div className="text-center mb-8 bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 max-w-md mx-auto">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Seleziona un Operatore
+            </h3>
+            <p className="text-sage-300 mb-4">
+              Scegli dalla nostra lista di specialisti per iniziare il consulto
+            </p>
+            <Link
+              href="/operatori"
+              className="inline-flex items-center px-6 py-3 bg-sage-600 hover:bg-sage-700 text-white rounded-lg transition-colors"
+            >
+              Visualizza Operatori
+            </Link>
+          </div>
+        )}
+
+        {/* Voice Conversation Component */}
+        <div className="mb-8">
+          <VoiceConversation
+            selectedOperator={selectedOperator || undefined}
+            selectedCategory={selectedCategory || undefined}
+            onConnect={handleVoiceConnect}
+            onDisconnect={handleVoiceDisconnect}
+            onError={handleVoiceError}
+            onUpgrade={handleUpgrade}
+            onLoginRequired={handleLoginRequired}
+          />
         </div>
-        <div
-          className="absolute bottom-1/3 right-1/3 text-3xl opacity-20 animate-float"
-          style={{ animationDelay: "1.5s" }}
-        >
-          🔯
+
+        {/* Mystical Elements - contained within viewport */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 text-6xl opacity-20 animate-float transform -translate-x-1/2 -translate-y-1/2">
+            ✨
+          </div>
+          <div
+            className="absolute top-1/3 right-1/4 text-4xl opacity-30 animate-float transform translate-x-1/2 -translate-y-1/2"
+            style={{ animationDelay: "1s" }}
+          >
+            🌙
+          </div>
+          <div
+            className="absolute bottom-1/4 left-1/3 text-5xl opacity-25 animate-float transform -translate-x-1/2 translate-y-1/2"
+            style={{ animationDelay: "2s" }}
+          >
+            ⭐
+          </div>
+          <div
+            className="absolute bottom-1/3 right-1/3 text-3xl opacity-20 animate-float transform translate-x-1/2 translate-y-1/2"
+            style={{ animationDelay: "1.5s" }}
+          >
+            🔯
+          </div>
         </div>
       </div>
 
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+      <PaymentModal
+        isOpen={showPayment}
+        onClose={() => setShowPayment(false)}
+      />
     </div>
-  )
+  );
 }
