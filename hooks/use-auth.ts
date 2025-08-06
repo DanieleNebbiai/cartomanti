@@ -53,6 +53,7 @@ export function useAuth() {
   useEffect(() => {
     // Get initial user
     const getUser = async () => {
+      console.log(`useAuth[${instanceId.current}]: Getting initial user...`);
       try {
         // Try to get the session first
         const {
@@ -66,16 +67,23 @@ export function useAuth() {
           error,
         } = await supabase.auth.getUser();
 
+        console.log(`useAuth[${instanceId.current}]: Got user:`, { 
+          hasUser: !!user, 
+          userId: user?.id, 
+          hasSession: !!session, 
+          error: error?.message 
+        });
+
         // If we have a session but no user, try to refresh the session
         if (session && !user && !error) {
           console.log(
-            "useAuth: Have session but no user, attempting to refresh..."
+            `useAuth[${instanceId.current}]: Have session but no user, attempting to refresh...`
           );
           const {
             data: { user: refreshedUser },
             error: refreshError,
           } = await supabase.auth.refreshSession();
-          console.log("useAuth: Refresh result:", {
+          console.log(`useAuth[${instanceId.current}]: Refresh result:`, {
             user: !!refreshedUser,
             error: refreshError,
           });
@@ -84,14 +92,21 @@ export function useAuth() {
           setUser(user);
         }
       } catch (error) {
-        console.error("Error getting user:", error);
+        console.error(`useAuth[${instanceId.current}]: Error getting user:`, error);
         setUser(null);
       } finally {
+        console.log(`useAuth[${instanceId.current}]: Loading complete`);
         setLoading(false);
       }
     };
 
-    getUser();
+    // Add a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.log(`useAuth[${instanceId.current}]: Auth timeout - forcing loading to false`);
+      setLoading(false);
+    }, 10000); // 10 seconds timeout
+
+    getUser().finally(() => clearTimeout(timeout));
 
     // Listen for auth changes
     const {
