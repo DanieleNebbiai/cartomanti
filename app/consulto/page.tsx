@@ -6,8 +6,7 @@ import Link from "next/link";
 import Header from "@/components/header";
 import AuthModal from "@/components/auth-modal";
 import PaymentModal from "@/components/payment-modal";
-import VoiceConversation from "@/components/voice-conversation";
-import AuthDebug from "@/components/auth-debug";
+import VoiceConversation from "@/components/voice-conversation-refactored";
 
 function ConsultoPageContent() {
   const searchParams = useSearchParams();
@@ -216,23 +215,24 @@ function ConsultoPageContent() {
         isOpen={showPayment}
         onClose={() => setShowPayment(false)}
       />
-      <AuthDebug />
     </div>
   );
 }
 
 export default function ConsultoPage() {
   return (
-    <Suspense fallback={
-      <div className="w-full min-h-screen bg-gradient-to-br from-earth-900 via-sage-900 to-terracotta-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-sage-400/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <span className="text-2xl">🔮</span>
+    <Suspense
+      fallback={
+        <div className="w-full min-h-screen bg-gradient-to-br from-earth-900 via-sage-900 to-terracotta-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-sage-400/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <span className="text-2xl">🔮</span>
+            </div>
+            <p className="text-sage-300">Caricamento consulto...</p>
           </div>
-          <p className="text-sage-300">Caricamento consulto...</p>
         </div>
-      </div>
-    }>
+      }
+    >
       <ConsultoPageContent />
     </Suspense>
   );

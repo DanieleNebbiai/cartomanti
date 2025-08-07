@@ -53,7 +53,6 @@ export function useAuth() {
   useEffect(() => {
     // Get initial user
     const getUser = async () => {
-      console.log(`useAuth[${instanceId.current}]: Getting initial user...`);
       try {
         // Try to get the session first
         const {
@@ -66,13 +65,6 @@ export function useAuth() {
           data: { user },
           error,
         } = await supabase.auth.getUser();
-
-        console.log(`useAuth[${instanceId.current}]: Got user:`, { 
-          hasUser: !!user, 
-          userId: user?.id, 
-          hasSession: !!session, 
-          error: error?.message 
-        });
 
         // If we have a session but no user, try to refresh the session
         if (session && !user && !error) {
@@ -92,17 +84,21 @@ export function useAuth() {
           setUser(user);
         }
       } catch (error) {
-        console.error(`useAuth[${instanceId.current}]: Error getting user:`, error);
+        console.error(
+          `useAuth[${instanceId.current}]: Error getting user:`,
+          error
+        );
         setUser(null);
       } finally {
-        console.log(`useAuth[${instanceId.current}]: Loading complete`);
         setLoading(false);
       }
     };
 
     // Add a timeout to prevent infinite loading
     const timeout = setTimeout(() => {
-      console.log(`useAuth[${instanceId.current}]: Auth timeout - forcing loading to false`);
+      console.log(
+        `useAuth[${instanceId.current}]: Auth timeout - forcing loading to false`
+      );
       setLoading(false);
     }, 10000); // 10 seconds timeout
 
