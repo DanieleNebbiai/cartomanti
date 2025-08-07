@@ -29,9 +29,7 @@ export default function UsageLimitModal({
             <Clock className="h-8 w-8" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Prova Gratuita Terminata</h2>
-          <p className="text-earth-100">
-            Hai utilizzato tutti i 10 minuti gratuiti di questo mese
-          </p>
+          <p className="text-earth-100">Hai utilizzato il primo mese gratis.</p>
         </div>
 
         {/* Content */}
@@ -102,10 +100,6 @@ export default function UsageLimitModal({
               Scegli Piano
             </Button>
           </div>
-
-          <p className="text-xs text-earth-500 text-center mt-4">
-            La prova gratuita si rinnova automaticamente ogni mese
-          </p>
         </div>
       </div>
     </div>

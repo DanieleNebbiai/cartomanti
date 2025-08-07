@@ -27,7 +27,7 @@ export default function HomePage() {
             <span className="text-8xl animate-pulse">🔮</span>
           </div>
 
-          <h1 className="font-poppins text-5xl md:text-7xl font-light text-earth-900 mb-6 animate-fade-in tracking-tight">
+          <h1 className="font-playfair text-5xl md:text-7xl font-bold text-earth-900 mb-6 animate-fade-in tracking-tight">
             Cartomanti.online
           </h1>
 

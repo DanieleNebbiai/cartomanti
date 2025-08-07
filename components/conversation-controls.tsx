@@ -47,7 +47,7 @@ export default function ConversationControls({
           </div>
           <div className="bg-sage-800/30 rounded-lg p-3 mb-4">
             <p className="text-sage-300 text-sm">
-              ✨ <strong>Prova gratuita:</strong> 10 minuti al mese
+              ✨ <strong>Prova gratuita:</strong> Il primo mese è gratis
             </p>
           </div>
         </div>

@@ -79,7 +79,11 @@ export default function Header({ onAuthClick, dark = false }: HeaderProps) {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <span className="text-3xl group-hover:animate-pulse">🔮</span>
+          <img 
+            src="/favicon.ico" 
+            alt="Cartomanti Logo" 
+            className="w-8 h-8 group-hover:animate-pulse"
+          />
           <span
             className={`font-playfair text-2xl font-bold ${textColor} ${hoverColor} transition-colors`}
           >
