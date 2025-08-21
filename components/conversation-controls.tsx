@@ -12,12 +12,11 @@ interface ConversationControlsProps {
   authLoading: boolean;
   isUsageLoading: boolean;
   authIsAuthenticated: boolean;
+  selectedOperator?: string;
   onStartConversation: () => void;
   onEndConversation: () => void;
   onRequestPermission: () => void;
   onLoginRequired?: () => void;
-  getUsedMinutes: () => number;
-  getUsedSecondsRemainder: () => number;
 }
 
 export default function ConversationControls({
@@ -29,12 +28,11 @@ export default function ConversationControls({
   authLoading,
   isUsageLoading,
   authIsAuthenticated,
+  selectedOperator,
   onStartConversation,
   onEndConversation,
   onRequestPermission,
   onLoginRequired,
-  getUsedMinutes,
-  getUsedSecondsRemainder,
 }: ConversationControlsProps) {
   // Login required UI - but only if we're not loading and actually not authenticated
   if (!authIsAuthenticated && !authLoading && !isUsageLoading) {
@@ -101,14 +99,22 @@ export default function ConversationControls({
       {/* Call Controls - Only Start Button */}
       <div className="flex gap-4 flex-col sm:flex-row">
         {!sessionStartTime ? (
-          <Button
-            onClick={onStartConversation}
-            disabled={isProcessing}
-            className="bg-sage-600 hover:bg-sage-700 px-8 py-3 transition-all duration-2000 animate-pulse-glow"
-          >
-            <MessageSquare className="mr-2 h-5 w-5" />
-            Inizia Consulto
-          </Button>
+          selectedOperator ? (
+            <Button
+              onClick={onStartConversation}
+              disabled={isProcessing}
+              className="bg-sage-600 hover:bg-sage-700 px-8 py-3 transition-all duration-2000 animate-pulse-glow"
+            >
+              <MessageSquare className="mr-2 h-5 w-5" />
+              Inizia Consulto
+            </Button>
+          ) : (
+            <div className="text-center p-4 bg-sage-800/30 rounded-lg border border-sage-600/20">
+              <p className="text-sage-300 text-sm">
+                Seleziona un operatore per iniziare il consulto
+              </p>
+            </div>
+          )
         ) : (
           <div className="flex gap-4 items-center justify-center">
             {/* {isListening ? (

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTrialUsage } from "@/hooks/use-trial-usage";
 import { useAuth } from "@/hooks/use-auth";
-import UsageLimitModal from "@/components/usage-limit-modal";
+import PaymentModal from "@/components/payment-modal";
 import VoiceRecorder from "@/components/voice-recorder";
 import AudioProcessor from "@/components/audio-processor";
 import ConversationControls from "@/components/conversation-controls";
@@ -44,13 +44,12 @@ export default function VoiceConversation({
 
   const sessionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { isAuthenticated: authIsAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated: authIsAuthenticated, loading: authLoading } =
+    useAuth();
   const {
     hasExceededLimit,
-    getUsedMinutes,
-    getUsedSecondsRemainder,
-    addUsage,
-    forceSave,
+    activateTrial,
+    usage,
     isLoading: isUsageLoading,
     isAuthenticated: trialIsAuthenticated,
   } = useTrialUsage();
@@ -87,39 +86,37 @@ export default function VoiceConversation({
 
   // Handle audio ready from voice recorder
   async function handleAudioReady(audioBlob: Blob) {
-    const limitExceeded = hasExceededLimit();
-    console.log('🔍 Main: Checking usage limit:', limitExceeded, 'used:', getUsedMinutes(), 'min', getUsedSecondsRemainder(), 'sec');
-    
-    if (limitExceeded) {
-      console.log('❌ Main: Usage limit exceeded in handleAudioReady');
-      setShowLimitModal(true);
-      return;
-    }
+    // No need to check limits here - we check at conversation start
 
     try {
       setIsProcessing(true);
-      
-      const result = await audioProcessor.processConversationFlow(audioBlob, conversation);
-      
+
+      const result = await audioProcessor.processConversationFlow(
+        audioBlob,
+        conversation
+      );
+
       // Update conversation history
       const newConversation = [
         ...conversation,
         { role: "user", content: result.userMessage },
-        { role: "assistant", content: result.aiResponse }
+        { role: "assistant", content: result.aiResponse },
       ];
       setConversation(newConversation);
-      
-      console.log('💬 Main: User said:', result.userMessage);
-      console.log('💬 Main: AI replied:', result.aiResponse.substring(0, 100) + '...');
-      
+
+      console.log("💬 Main: User said:", result.userMessage);
+      console.log(
+        "💬 Main: AI replied:",
+        result.aiResponse.substring(0, 100) + "..."
+      );
     } catch (error) {
-      console.error('❌ Main: Error processing audio:', error);
+      console.error("❌ Main: Error processing audio:", error);
       onError?.(error as Error);
-      
+
       // Restart listening on error
       setTimeout(() => {
         if (sessionStartTime && !isListening && !isRecording) {
-          console.log('🔄 Main: Restarting listening after error');
+          console.log("🔄 Main: Restarting listening after error");
           voiceRecorder.startRecording();
         }
       }, 2000);
@@ -130,29 +127,37 @@ export default function VoiceConversation({
 
   // Handle TTS end
   function handleTTSEnd() {
-    console.log('🔇 Main: AI finished speaking - restarting listening');
+    console.log("🔇 Main: AI finished speaking - restarting listening");
     setIsAISpeaking(false);
-    
+
     // Restart listening after AI finishes
     setTimeout(() => {
       if (!sessionStartTime) {
-        console.log('🔄 Main: Restarting session and listening after AI speech');
+        console.log(
+          "🔄 Main: Restarting session and listening after AI speech"
+        );
         setSessionStartTime(new Date());
         voiceRecorder.startRecording();
       } else if (!isListening && !isRecording) {
-        console.log('🔄 Main: Restarting listening after AI speech');
+        console.log("🔄 Main: Restarting listening after AI speech");
         voiceRecorder.startRecording();
       } else {
-        console.log('⚠️ Main: Cannot restart - still active (listening:', isListening, 'recording:', isRecording, ')');
+        console.log(
+          "⚠️ Main: Cannot restart - still active (listening:",
+          isListening,
+          "recording:",
+          isRecording,
+          ")"
+        );
       }
     }, 500); // Small delay to ensure TTS cleanup
   }
 
   // Handle TTS error
   function handleTTSError() {
-    console.log('❌ Main: AI audio error - restarting listening');
+    console.log("❌ Main: AI audio error - restarting listening");
     setIsAISpeaking(false);
-    
+
     // Restart even on error
     setTimeout(() => {
       if (!sessionStartTime) {
@@ -170,17 +175,10 @@ export default function VoiceConversation({
     sessionIntervalRef.current = setInterval(() => {
       // Only track usage when actually listening or processing
       if (isListening || isProcessing) {
-        console.log("Main: Usage tracking tick - adding 1 second (active session)");
-        addUsage(1); // Add 1 second
-
-        // Check if limit exceeded and end conversation
-        const limitExceeded = hasExceededLimit();
-        if (limitExceeded) {
-          console.log("🚨 Main: Usage limit exceeded, ending conversation automatically");
-          console.log("Main: Used time:", getUsedMinutes(), "minutes", getUsedSecondsRemainder(), "seconds");
-          endConversation();
-          setShowLimitModal(true);
-        }
+        console.log(
+          "Main: Usage tracking tick - session active"
+        );
+        // No need to check limits during conversation - we check at start
       }
     }, 1000);
   };
@@ -193,23 +191,38 @@ export default function VoiceConversation({
     }
   };
 
-  // Start conversation with AI greeting
+  // Start conversation with AI greeting  
   const startConversation = async () => {
     if (!sessionStartTime && !hasStarted) {
-      console.log('🚀 Main: Starting conversation...');
+      console.log("🚀 Main: Starting conversation...");
+
+      // Check if user has access BEFORE starting conversation
+      const limitExceeded = hasExceededLimit();
+      if (limitExceeded) {
+        console.log("🚨 Main: Access denied - showing upgrade modal");
+        setShowLimitModal(true);
+        return; // Stop here, don't start conversation
+      }
+
+      // Activate trial if not already activated (for new users)
+      if (usage && !usage.activatedAt && !usage.expiresAt) {
+        console.log("🎁 Activating free trial for new user...");
+        await activateTrial();
+      }
+
       setSessionStartTime(new Date());
       startUsageTracking();
       onConnect?.();
       setHasStarted(true);
-      
+
       // Start with AI greeting
       try {
         setIsProcessing(true);
         await audioProcessor.generateInitialGreeting();
       } catch (error) {
-        console.error('❌ Main: Error with initial greeting:', error);
+        console.error("❌ Main: Error with initial greeting:", error);
         setIsProcessing(false);
-        
+
         // Initialize and start listening anyway
         setTimeout(async () => {
           if (!voiceRecorder.hasPermission) {
@@ -224,11 +237,9 @@ export default function VoiceConversation({
   // End conversation
   const endConversation = async () => {
     try {
-      console.log('🔚 Main: Ending conversation...');
+      console.log("🔚 Main: Ending conversation...");
       voiceRecorder.stopRecording();
       voiceRecorder.cleanup();
-      stopUsageTracking();
-      await forceSave(); // Final save to Supabase
 
       setConversation([]);
       setSessionStartTime(null);
@@ -251,7 +262,6 @@ export default function VoiceConversation({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopUsageTracking();
       if (voiceRecorder) {
         voiceRecorder.cleanup();
       }
@@ -262,8 +272,6 @@ export default function VoiceConversation({
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (isListening || isProcessing) {
-        // Force save usage before page closes
-        forceSave();
         // Show warning to user
         event.preventDefault();
         return "Hai una conversazione in corso. Sei sicuro di voler uscire?";
@@ -272,15 +280,11 @@ export default function VoiceConversation({
 
     const handleVisibilityChange = () => {
       if (document.hidden && (isListening || isProcessing)) {
-        // Save when user switches tabs/apps
-        forceSave();
       }
     };
 
     const handlePageHide = () => {
       if (isListening || isProcessing) {
-        // Final save on page hide (mobile browsers)
-        forceSave();
       }
     };
 
@@ -295,7 +299,7 @@ export default function VoiceConversation({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
     };
-  }, [isListening, isProcessing, forceSave]);
+  }, [isListening, isProcessing]);
 
   // Check microphone permission on mount
   useEffect(() => {
@@ -314,27 +318,20 @@ export default function VoiceConversation({
         authLoading={authLoading}
         isUsageLoading={isUsageLoading}
         authIsAuthenticated={authIsAuthenticated}
+        selectedOperator={selectedOperator}
         onStartConversation={startConversation}
         onEndConversation={endConversation}
         onRequestPermission={requestMicrophonePermission}
         onLoginRequired={onLoginRequired}
-        getUsedMinutes={getUsedMinutes}
-        getUsedSecondsRemainder={getUsedSecondsRemainder}
       />
 
       {/* Hidden audio element for playing TTS */}
       <audio ref={audioProcessor.audioRef} style={{ display: "none" }} />
 
-      {/* Usage Limit Modal */}
-      <UsageLimitModal
+      {/* Payment Modal */}
+      <PaymentModal
         isOpen={showLimitModal}
         onClose={() => setShowLimitModal(false)}
-        onUpgrade={() => {
-          setShowLimitModal(false);
-          onUpgrade?.();
-        }}
-        usedMinutes={getUsedMinutes()}
-        usedSeconds={getUsedSecondsRemainder()}
       />
     </div>
   );
