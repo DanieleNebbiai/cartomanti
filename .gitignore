@@ -9,6 +9,7 @@
 
 # production
 /build
+.claude
 
 # debug
 npm-debug.log*
@@ -18,6 +19,7 @@ yarn-error.log*
 
 # env files
 .env*
+
 
 # vercel
 .vercel

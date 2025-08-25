@@ -1,82 +1,101 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import type React from "react";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface AuthModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [loginData, setLoginData] = useState({ email: "", password: "" })
-  const [signupData, setSignupData] = useState({ name: "", email: "", password: "" })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [message, setMessage] = useState("")
+  const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [signupData, setSignupData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  const supabase = createClient()
+  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
       // Check if Supabase is properly configured
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        setError("Servizio di autenticazione temporaneamente non disponibile. Riprova più tardi.")
-        setLoading(false)
-        return
+      if (
+        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      ) {
+        setError(
+          "Servizio di autenticazione temporaneamente non disponibile. Riprova più tardi."
+        );
+        setLoading(false);
+        return;
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password,
-      })
+      });
 
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
-          setError("Credenziali non valide. Controlla email e password.")
+          setError("Credenziali non valide. Controlla email e password.");
         } else if (error.message.includes("Email not confirmed")) {
-          setError("Email non confermata. Controlla la tua casella di posta.")
+          setError("Email non confermata. Controlla la tua casella di posta.");
         } else {
-          setError("Errore durante l'accesso. Riprova.")
+          setError("Errore durante l'accesso. Riprova.");
         }
       } else {
-        setMessage("Accesso effettuato con successo!")
+        setMessage("Accesso effettuato con successo!");
         setTimeout(() => {
-          onClose()
-          window.location.reload()
-        }, 1500)
+          onClose();
+          window.location.reload();
+        }, 1500);
       }
     } catch (err) {
-      console.error("Login error:", err)
-      setError("Errore durante l'accesso. Riprova.")
+      console.error("Login error:", err);
+      setError("Errore durante l'accesso. Riprova.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
       // Check if Supabase is properly configured
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        setError("Servizio di registrazione temporaneamente non disponibile. Riprova più tardi.")
-        setLoading(false)
-        return
+      if (
+        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      ) {
+        setError(
+          "Servizio di registrazione temporaneamente non disponibile. Riprova più tardi."
+        );
+        setLoading(false);
+        return;
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -87,40 +106,40 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             full_name: signupData.name,
           },
         },
-      })
+      });
 
       if (error) {
         if (error.message.includes("User already registered")) {
-          setError("Utente già registrato. Prova ad accedere.")
+          setError("Utente già registrato. Prova ad accedere.");
         } else if (error.message.includes("Password should be at least")) {
-          setError("La password deve essere di almeno 6 caratteri.")
+          setError("La password deve essere di almeno 6 caratteri.");
         } else {
-          setError("Errore durante la registrazione. Riprova.")
+          setError("Errore durante la registrazione. Riprova.");
         }
       } else {
-        setMessage("Registrazione completata! Controlla la tua email per confermare l'account.")
-        setSignupData({ name: "", email: "", password: "" })
+        setMessage("Registrazione completata!");
+        setSignupData({ name: "", email: "", password: "" });
       }
     } catch (err) {
-      console.error("Signup error:", err)
-      setError("Errore durante la registrazione. Riprova.")
+      console.error("Signup error:", err);
+      setError("Errore durante la registrazione. Riprova.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const resetForm = () => {
-    setLoginData({ email: "", password: "" })
-    setSignupData({ name: "", email: "", password: "" })
-    setError("")
-    setMessage("")
-    setLoading(false)
-  }
+    setLoginData({ email: "", password: "" });
+    setSignupData({ name: "", email: "", password: "" });
+    setError("");
+    setMessage("");
+    setLoading(false);
+  };
 
   const handleClose = () => {
-    resetForm()
-    onClose()
-  }
+    resetForm();
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -134,22 +153,32 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         {error && (
           <Alert className="border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
 
         {message && (
           <Alert className="border-green-200 bg-green-50">
-            <AlertDescription className="text-green-800">{message}</AlertDescription>
+            <AlertDescription className="text-green-800">
+              {message}
+            </AlertDescription>
           </Alert>
         )}
 
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-white/50">
-            <TabsTrigger value="login" className="data-[state=active]:bg-sage-100">
+            <TabsTrigger
+              value="login"
+              className="data-[state=active]:bg-sage-100"
+            >
               Accedi
             </TabsTrigger>
-            <TabsTrigger value="signup" className="data-[state=active]:bg-sage-100">
+            <TabsTrigger
+              value="signup"
+              className="data-[state=active]:bg-sage-100"
+            >
               Registrati
             </TabsTrigger>
           </TabsList>
@@ -165,7 +194,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   type="email"
                   placeholder="la-tua-email@esempio.com"
                   value={loginData.email}
-                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                  onChange={(e) =>
+                    setLoginData({ ...loginData, email: e.target.value })
+                  }
                   className="border-sage-200 focus:border-sage-400"
                   required
                   disabled={loading}
@@ -181,7 +212,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   type="password"
                   placeholder="••••••••"
                   value={loginData.password}
-                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                  onChange={(e) =>
+                    setLoginData({ ...loginData, password: e.target.value })
+                  }
                   className="border-sage-200 focus:border-sage-400"
                   required
                   disabled={loading}
@@ -216,7 +249,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   type="text"
                   placeholder="Il tuo nome"
                   value={signupData.name}
-                  onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
+                  onChange={(e) =>
+                    setSignupData({ ...signupData, name: e.target.value })
+                  }
                   className="border-sage-200 focus:border-sage-400"
                   required
                   disabled={loading}
@@ -232,7 +267,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   type="email"
                   placeholder="la-tua-email@esempio.com"
                   value={signupData.email}
-                  onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                  onChange={(e) =>
+                    setSignupData({ ...signupData, email: e.target.value })
+                  }
                   className="border-sage-200 focus:border-sage-400"
                   required
                   disabled={loading}
@@ -248,7 +285,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   type="password"
                   placeholder="••••••••"
                   value={signupData.password}
-                  onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                  onChange={(e) =>
+                    setSignupData({ ...signupData, password: e.target.value })
+                  }
                   className="border-sage-200 focus:border-sage-400"
                   required
                   disabled={loading}
@@ -277,12 +316,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         <div className="text-center text-sm text-earth-600 mt-4">
           <p>Registrandoti accetti i nostri</p>
           <p>
-            <span className="underline cursor-pointer hover:text-sage-600">Termini di Servizio</span>
+            <span className="underline cursor-pointer hover:text-sage-600">
+              Termini di Servizio
+            </span>
             {" e "}
-            <span className="underline cursor-pointer hover:text-sage-600">Privacy Policy</span>
+            <span className="underline cursor-pointer hover:text-sage-600">
+              Privacy Policy
+            </span>
           </p>
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

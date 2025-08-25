@@ -18,6 +18,7 @@ const operators = [
     approach:
       "Utilizzo tarocchi dell'amore e carte degli angeli per guidarti verso la felicità sentimentale. Il mio metodo si basa sull'ascolto del cuore e sulla lettura delle energie che legano due persone.",
     rating: 4.9,
+    image: "/download.jpeg",
   },
   {
     name: "Marco Visione",
@@ -29,6 +30,7 @@ const operators = [
     approach:
       "Uso tarocchi professionali e numerologia per sbloccare il tuo potenziale lavorativo. Analizzo il tuo percorso presente per individuare la strada migliore verso il successo.",
     rating: 4.8,
+    image: "/download (1).jpeg",
   },
   {
     name: "Sofia Prosperità",
@@ -40,17 +42,19 @@ const operators = [
     approach:
       "Combino tarocchi della ricchezza con consigli pratici per migliorare la tua situazione economica. Leggo le energie del denaro e ti guido verso scelte finanziarie vincenti.",
     rating: 4.7,
+    image: "/download (2).jpeg",
   },
   {
-    name: "Giovanni Numeri",
+    name: "Elena Numeri",
     category: "LOTTO",
     color: "from-yellow-500 to-orange-600",
     experience: "20 anni",
     description:
-      "Giovanni è un maestro dei numeri e della cabala. Ha sviluppato un sistema unico per interpretare i sogni e trasformarli in combinazioni vincenti. La sua precisione è leggendaria tra chi cerca fortuna nei giochi. Esperto in cabala, numeri da sogno e previsioni numerologiche.",
+      "Elena è una maestra dei numeri e della cabala. Ha sviluppato un sistema unico per interpretare i sogni e trasformarli in combinazioni vincenti. La sua precisione è leggendaria tra chi cerca fortuna nei giochi. Esperto in cabala, numeri da sogno e previsioni numerologiche.",
     approach:
       "Interpreto i tuoi sogni e uso la cabala napoletana per trovare i numeri della fortuna. Ogni simbolo ha un significato numerico che può portarti alla vincita.",
     rating: 4.6,
+    image: "/download (3).jpeg",
   },
   {
     name: "Elena Universale",
@@ -62,6 +66,7 @@ const operators = [
     approach:
       "Uso un approccio olistico combinando diversi mazzi di tarocchi secondo le tue esigenze. Ogni consulto è personalizzato per darti le risposte più accurate possibili.",
     rating: 4.9,
+    image: "/download (4).jpeg",
   },
 ];
 
@@ -95,14 +100,19 @@ export default function OperatoriPage() {
         <div className="max-w-4xl mx-auto">
           <div className="space-y-20">
             {operators.map((operator, index) => (
-              <Link key={index} href={`/consulto?operator=${encodeURIComponent(operator.name)}&category=${encodeURIComponent(operator.category)}`}>
+              <Link
+                key={index}
+                href={`/consulto?operator=${encodeURIComponent(
+                  operator.name
+                )}&category=${encodeURIComponent(operator.category)}`}
+              >
                 <div className="hover:bg-gray-50 rounded-lg p-6 transition-all duration-300 cursor-pointer group">
                   <div className="flex items-start gap-8">
                     {/* Photo */}
                     <div className="flex-shrink-0">
                       <div className="w-48 h-48 rounded-lg overflow-hidden group-hover:scale-105 transition-transform duration-300">
                         <Image
-                          src="/placeholder.svg"
+                          src={operator.image}
                           alt={operator.name}
                           width={192}
                           height={192}

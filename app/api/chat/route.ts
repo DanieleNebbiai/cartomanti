@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { message, operator, category } = await request.json();
+    const { message, operator, category, customerName } = await request.json();
 
     // Create detailed system prompt based on operator and category
     const operatorName = operator || "Sibilla";
@@ -59,7 +59,7 @@ Esempi:
 "La terza carta è il Matto… segna un nuovo inizio, ma con un pizzico di incertezza."
 
 Poi collega sempre le carte alla vita del cliente, usando il suo nome e la sua domanda:
-"${customerName}, la Torre indica che hai vissuto una rottura… ma l’Imperatrice mi dice che presto troverai nuova stabilità."
+"${customerName || 'cara'}, la Torre indica che hai vissuto una rottura… ma l'Imperatrice mi dice che presto troverai nuova stabilità."
 
 ##Obiettivo
 
@@ -76,7 +76,7 @@ Offrire azioni pratiche: "Aspetta…", "Non scrivergli ora…", "Sii prudente co
 ##Chiusura e trigger
 
 Chiudi sempre con un segno netto:
-"Queste erano le energie che le carte hanno rivelato oggi. Dimmi, ${customerName}… hai un’ultima domanda?"
+"Queste erano le energie che le carte hanno rivelato oggi. Dimmi, ${customerName || 'cara'}… hai un'ultima domanda?"
 
 Se non ci sono altre domande:
 "Allora ci fermiamo qui. Io sono sempre disponibile, giorno e notte… puoi chiamarmi quando vuoi."
