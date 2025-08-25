@@ -83,9 +83,9 @@ export async function POST(req: Request) {
               console.log(`Searching profile with email: "${customer.email}"`)
               const { data: profileByEmail, error: emailSearchError } = await supabase
                 .from('profiles')
-                .select('id, stripe_customer_id')
+                .select('id, stripe_customer_id, email')
                 .eq('email', customer.email)
-                .single()
+                .maybeSingle()
 
               console.log(`Profile search result:`, profileByEmail, `Error:`, emailSearchError)
 
