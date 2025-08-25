@@ -63,15 +63,44 @@ export async function POST(req: Request) {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
 
-        // Find user by Stripe customer ID
-        const { data: profile } = await supabase
+        // Find user by Stripe customer ID first
+        let { data: profile } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, stripe_customer_id')
           .eq('stripe_customer_id', customerId)
           .single()
 
+        // If not found by stripe_customer_id, try to get customer from Stripe and find by email
         if (!profile) {
-          console.log(`No profile found for customer: ${customerId} - might be processed by checkout.session.completed later`)
+          try {
+            const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+            if (customer.email) {
+              const { data: profileByEmail } = await supabase
+                .from('profiles')
+                .select('id, stripe_customer_id')
+                .eq('email', customer.email)
+                .single()
+
+              if (profileByEmail) {
+                // Update the profile with stripe_customer_id for future webhooks
+                const { error: updateError } = await supabase
+                  .from('profiles')
+                  .update({ stripe_customer_id: customerId })
+                  .eq('id', profileByEmail.id)
+
+                if (!updateError) {
+                  profile = { ...profileByEmail, stripe_customer_id: customerId }
+                  console.log(`Updated profile ${profileByEmail.id} with stripe_customer_id: ${customerId}`)
+                }
+              }
+            }
+          } catch (stripeError) {
+            console.error('Error retrieving customer from Stripe:', stripeError)
+          }
+        }
+
+        if (!profile) {
+          console.log(`No profile found for customer: ${customerId}`)
           return NextResponse.json({ received: true, message: 'Customer not yet in database' })
         }
 
