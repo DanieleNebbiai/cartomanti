@@ -71,8 +71,8 @@ export async function POST(req: Request) {
           .single()
 
         if (!profile) {
-          console.error('No profile found for customer:', customerId)
-          return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+          console.log(`No profile found for customer: ${customerId} - might be processed by checkout.session.completed later`)
+          return NextResponse.json({ received: true, message: 'Customer not yet in database' })
         }
 
         // Update subscription status
@@ -107,8 +107,8 @@ export async function POST(req: Request) {
           .single()
 
         if (!profile) {
-          console.error('No profile found for customer:', customerId)
-          return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+          console.log(`No profile found for customer: ${customerId} - might be processed by checkout.session.completed later`)
+          return NextResponse.json({ received: true, message: 'Customer not yet in database' })
         }
 
         // Update subscription status to inactive
