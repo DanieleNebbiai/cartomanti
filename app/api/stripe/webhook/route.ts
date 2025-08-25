@@ -40,6 +40,8 @@ export async function POST(req: Request) {
         }
 
         // Update user subscription status
+        console.log(`Updating user ${userId} with stripe_customer_id: ${session.customer}`)
+        
         const { error } = await supabase
           .from('profiles')
           .update({
@@ -55,7 +57,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
         }
 
-        console.log(`Subscription activated for user ${userId}`)
+        console.log(`Successfully updated user ${userId} with stripe_customer_id: ${session.customer}`)
         break
       }
 
