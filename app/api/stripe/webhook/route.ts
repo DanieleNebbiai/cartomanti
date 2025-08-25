@@ -81,6 +81,14 @@ export async function POST(req: Request) {
             
             if (customer.email) {
               console.log(`Searching profile with email: "${customer.email}"`)
+              
+              // Debug: check all profiles first
+              const { data: allProfiles } = await supabase
+                .from('profiles')
+                .select('id, email, full_name')
+                .limit(5)
+              console.log(`All profiles in DB (first 5):`, allProfiles)
+              
               const { data: profileByEmail, error: emailSearchError } = await supabase
                 .from('profiles')
                 .select('id, stripe_customer_id, email')
