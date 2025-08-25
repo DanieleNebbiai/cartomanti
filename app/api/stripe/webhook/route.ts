@@ -73,15 +73,22 @@ export async function POST(req: Request) {
         // If not found by stripe_customer_id, try to get customer from Stripe and find by email
         if (!profile) {
           try {
+            console.log(`Searching customer ${customerId} in Stripe API`)
             const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+            console.log(`Customer email from Stripe: "${customer.email}"`)
+            
             if (customer.email) {
-              const { data: profileByEmail } = await supabase
+              console.log(`Searching profile with email: "${customer.email}"`)
+              const { data: profileByEmail, error: emailSearchError } = await supabase
                 .from('profiles')
                 .select('id, stripe_customer_id')
                 .eq('email', customer.email)
                 .single()
 
+              console.log(`Profile search result:`, profileByEmail, `Error:`, emailSearchError)
+
               if (profileByEmail) {
+                console.log(`Found profile by email: ${profileByEmail.id}, updating with stripe_customer_id`)
                 // Update the profile with stripe_customer_id for future webhooks
                 const { error: updateError } = await supabase
                   .from('profiles')
@@ -90,9 +97,15 @@ export async function POST(req: Request) {
 
                 if (!updateError) {
                   profile = { ...profileByEmail, stripe_customer_id: customerId }
-                  console.log(`Updated profile ${profileByEmail.id} with stripe_customer_id: ${customerId}`)
+                  console.log(`Successfully updated profile ${profileByEmail.id} with stripe_customer_id: ${customerId}`)
+                } else {
+                  console.error(`Error updating profile:`, updateError)
                 }
+              } else {
+                console.log(`No profile found with email: "${customer.email}"`)
               }
+            } else {
+              console.log(`No email found for customer: ${customerId}`)
             }
           } catch (stripeError) {
             console.error('Error retrieving customer from Stripe:', stripeError)
