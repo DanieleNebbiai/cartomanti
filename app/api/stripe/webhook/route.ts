@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 // Skip Stripe initialization during build if API key is not set
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy'
@@ -26,7 +26,17 @@ export async function POST(req: Request) {
     )
   }
 
-  const supabase = await createClient()
+  // Use service role to bypass RLS for webhook operations
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
 
   try {
     switch (event.type) {
@@ -81,14 +91,6 @@ export async function POST(req: Request) {
             
             if (customer.email) {
               console.log(`Searching profile with email: "${customer.email}"`)
-              
-              // Debug: check all profiles first
-              const { data: allProfiles } = await supabase
-                .from('profiles')
-                .select('id, email, full_name')
-                .limit(5)
-              console.log(`All profiles in DB (first 5):`, allProfiles)
-              
               const { data: profileByEmail, error: emailSearchError } = await supabase
                 .from('profiles')
                 .select('id, stripe_customer_id, email')
