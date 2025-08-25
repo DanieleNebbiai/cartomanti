@@ -56,8 +56,8 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/consulto?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/consulto?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.cartomanti.online'}/consulto?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.cartomanti.online'}/consulto?canceled=true`,
       metadata: {
         user_id: user.id,
       },
