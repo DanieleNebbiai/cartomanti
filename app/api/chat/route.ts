@@ -143,9 +143,9 @@ Sei versatile e puoi guidare su qualsiasi tema: amore, lavoro, famiglia, decisio
           content: message,
         },
       ],
-      temperature: 0.8,
-      max_tokens: 300, // Reduced from 500 for faster responses
-      stream: false, // Keep false for now, but could enable streaming later
+      temperature: 0.7, // Reduced for faster, more focused responses
+      max_tokens: 150, // Reduced from 300 for much faster responses
+      stream: false,
     });
 
     const responseText =
